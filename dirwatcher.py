@@ -69,10 +69,7 @@ def signal_handler(sig_num, frame):
     This is a handler for SIGTERM and SIGINT. Other signals can be mapped here as well (SIGHUP?)
     Basically it just sets a global flag, and main() will exit it's loop if the signal is trapped.
     """
-    # Logs associated signal name (New way)
     logger.warn('Received ' + signal.Signals(sig_num).name)
-
-    # Logs associated signal name (the python2 way)
     signames = dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
                     if v.startswith('SIG') and not v.startswith('SIG_'))
     logger.warn('Received ' + signames[sig_num])
@@ -112,11 +109,8 @@ def main():
 
     while not exit_flag:
         try:
-            # Call to watch_dir Function
             watch_dir(args)
         except OSError as e:
-            # UNHANDLED exception
-            # Log an ERROR level message here
             if e.errno == errno.ENOENT:
                 logger.error(f"{args.path} directory not found")
                 time.sleep(2)
@@ -124,8 +118,6 @@ def main():
                 logger.error(e)
         except Exception as e:
             logger.error(f"UNHANDLED EXCEPTION:{e}")
-
-            # Sleeps while loop so cpu usage isn't at 100%
         time.sleep(int(float(args.interval)))
 
     uptime = dt.now() - app_start_time
