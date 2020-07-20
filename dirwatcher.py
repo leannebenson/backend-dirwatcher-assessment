@@ -1,0 +1,136 @@
+
+
+"Directory Watcher"
+
+__author__: "LeanneBenson && utilized Piero and Daniel demos as well as lots of googling various resources"
+
+import signal
+import time
+import logging
+import logging.handlers
+from datetime import datetime as dt
+import argparse
+import os
+import errno
+
+logger = logging.getLogger(__file__)
+files = {}
+exit_flag = False
+
+
+def watch_dir(args):
+    """
+    Look at the directory that you're watching
+    Get a list of files
+    Add files to files dictionary if they're not already in it
+    Log a message if you're adding something to dictionary that's not already there--log as a new file
+    Look through files dictionary and compare that to the list of files in the directory
+    If file is not in your dictionary anymore you have to log that you removed the file from your dictionary
+    """
+    logger.info('Watching directory: {}, File Extension: {}, Polling Interval: {}, Magic Text: {}'.format(
+        args.path, args.ext, args.interval, args.magic
+    ))
+    file_list = os.listdir(args.path)
+    for f in file_list:
+        if f.endswith(args.ext) and f not in files:
+            files[f] = 0
+            logger.info(f"{f} added to watchlist.")
+    for f in list(files):
+        if f not in file_list:
+            logger.info(f"{f} removed from watchlist.")
+            del files[f]
+    for f in files:
+        files[f] = find_magic(
+            os.path.join(args.path, f),
+            files[f],
+            args.magic
+        )
+
+
+def find_magic(filename, starting_line, magic_word):
+    """
+    # Iterate through dictionary and open up each file at the last line that you read from to see if there's anymore "magic" text
+    # Update the last position you read from int he dictionary
+    # Key will be the filenames and the values will be the starting line you used and the last position you read from 
+    """
+    line_number = 0
+    with open(filename) as f:
+        for line_number, line in enumerate(f):
+            if line_number >= starting_line:
+                if magic_word in line:
+                    logger.info(
+                        f"This file: {filename} found:  {magic_word} on line: {line_number + 1}"
+                    )
+    return line_number + 1
+
+
+def signal_handler(sig_num, frame):
+    """
+    This is a handler for SIGTERM and SIGINT. Other signals can be mapped here as well (SIGHUP?)
+    Basically it just sets a global flag, and main() will exit it's loop if the signal is trapped.
+    """
+    logger.warn('Received ' + signal.Signals(sig_num).name)
+    signames = dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
+                    if v.startswith('SIG') and not v.startswith('SIG_'))
+    logger.warn('Received ' + signames[sig_num])
+    global exit_flag
+    exit_flag = True
+
+
+def create_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-e', '--ext', type=str, default='.txt',
+                        help='Text file extension to watch')
+    parser.add_argument('-i', '--interval', type=float, default=1.0,
+                        help='Number of seconds between polling')
+    parser.add_argument('path', help='Directory path to watch')
+    parser.add_argument('magic', help='String to watch for')
+    return parser
+
+
+def main():
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(name)-12s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d &%H:%M:%S'
+    )
+    logger.setLevel(logging.DEBUG)
+    app_start_time = dt.now()
+    logger.info(
+        '\n'
+        '-------------------------------------------------\n'
+        '   Running {0}\n'
+        '   Started on {1}\n'
+        '-------------------------------------------------\n'
+        .format(__file__, app_start_time.isoformat())
+    )
+    parser = create_parser()
+    args = parser.parse_args()
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    while not exit_flag:
+        try:
+            watch_dir(args)
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                logger.error(f"{args.path} directory not found")
+                time.sleep(2)
+            else:
+                logger.error(e)
+        except Exception as e:
+            logger.error(f"UNHANDLED EXCEPTION:{e}")
+        time.sleep(int(float(args.interval)))
+
+    uptime = dt.now() - app_start_time
+    logger.info(
+        '\n'
+        '-------------------------------------------------\n'
+        '   Stopped {}\n'
+        '   Uptime was {}\n'
+        '-------------------------------------------------\n'
+        .format(__file__, str(uptime))
+    )
+    logging.shutdown()
+
+
+if __name__ == "__main__":
+    main()
