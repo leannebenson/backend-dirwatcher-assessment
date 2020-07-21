@@ -69,10 +69,7 @@ def signal_handler(sig_num, frame):
     This is a handler for SIGTERM and SIGINT. Other signals can be mapped here as well (SIGHUP?)
     Basically it just sets a global flag, and main() will exit it's loop if the signal is trapped.
     """
-    logger.warn('Received ' + signal.Signals(sig_num).name)
-    signames = dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
-                    if v.startswith('SIG') and not v.startswith('SIG_'))
-    logger.warn('Received ' + signames[sig_num])
+    logger.warning('Received ' + signal.Signals(sig_num).name)
     global exit_flag
     exit_flag = True
 
